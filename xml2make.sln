@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32519.379
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "xml2make", "xml2make.csproj", "{0F3ABB04-9BB9-4988-8056-2916984D211F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F3ABB04-9BB9-4988-8056-2916984D211F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F3ABB04-9BB9-4988-8056-2916984D211F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F3ABB04-9BB9-4988-8056-2916984D211F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F3ABB04-9BB9-4988-8056-2916984D211F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AFD13D95-2CA4-4D71-97E1-DBD133FC7202}
+	EndGlobalSection
+EndGlobal
