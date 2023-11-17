@@ -17,7 +17,7 @@ CC = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
 
 OPTFLAGS = -O0
-CFLAGS = -Wall $(OPTFLAGS) -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ggdb -ffunction-sections -fdata-sections $(INCLUDES) $(DEFINES)
+CFLAGS = -Wall $(OPTFLAGS) -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 -gdwarf-2 -ffunction-sections -fdata-sections $(INCLUDES) $(DEFINES)
 LDFLAGS = -Tflash.ld -Wl,--gc-sections
 
 STARTUP = %startup%.o
