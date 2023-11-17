@@ -21,7 +21,7 @@ CFLAGS = -Wall $(OPTFLAGS) -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 -g
 LDFLAGS = -Tflash.ld -Wl,--gc-sections
 
 STARTUP = %startup%.o
-TARGET = %basename%.elf
+TARGET = %basename%.axf
 TARGET_HEX = %basename%.hex
 TARGET_BIN = %basename%.bin
 
@@ -74,9 +74,6 @@ xml2make uvisionproject.uvproj [startup file]
             string basename = Path.GetFileNameWithoutExtension(args[0]);
             string startup = args.Count() > 1 ? args[1] : "lib/CMSIS/startup_stm32f407vetx";
 
-
-            OutputMakefile(basename, startup);
-
             /* Target  */
             XmlNode defines = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetArmAds/Cads/VariousControls/Define");
             /* Define list is split by comma */
@@ -91,6 +88,13 @@ xml2make uvisionproject.uvproj [startup file]
 
             string mk_incs = "INCLUDES = -I";
             mk_incs += String.Join(" -I", incs).Replace('\\', '/');
+
+            /* output filename / basename */
+            XmlNode outdir = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetCommonOption/OutputDirectory");
+            XmlNode outname = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetCommonOption/OutputName");
+
+            /* get the object path+filename to use as makefile output */
+            string outputname = (outdir.InnerText + outname.InnerText).Replace('\\', '/');
 
             /* parse groups */
             XmlNode first_group = xmlDoc.SelectSingleNode("Project/Targets/Target/Groups");
@@ -151,9 +155,13 @@ xml2make uvisionproject.uvproj [startup file]
             string objs = "OBJECTS = " + String.Join(" ", mk_objs_short);
             sb.AppendLine(objs);
 
+            /* output build.mk */
             StreamWriter sw = new StreamWriter("build.mk");
             sw.Write(sb.ToString());
             sw.Close();
+
+            /* output makefile, too */
+            OutputMakefile(outputname, startup);
 
             /* Common settings for XML output */
             XmlWriterSettings settings = new XmlWriterSettings();
