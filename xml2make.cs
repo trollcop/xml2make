@@ -9,6 +9,171 @@ namespace xml2make
 {
     internal class xml2make
     {
+        static void OutputLinker(string basename, int stack_size, int ram_origin, int ram_size, int flash_origin, int flash_size)
+        {
+            string ld = @"
+/* Entry Point */
+ENTRY(Reset_Handler)
+
+/* Highest address of the user mode stack */
+_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of ""RAM"" Ram type memory */
+
+_Min_Heap_Size = 0x0; /* required amount of heap */
+_Min_Stack_Size = %stack_size%; /* required amount of stack */
+
+/* Memories definition */
+MEMORY
+{
+  RAM    (xrw)    : ORIGIN = %ram_origin%,   LENGTH = %ram_size%K
+  FLASH    (rx)    : ORIGIN = %flash_origin%,   LENGTH = %flash_size%K
+}
+
+/* Sections */
+SECTIONS
+{
+  /* The startup code into ""FLASH"" Rom type memory */
+  .isr_vector :
+  {
+    . = ALIGN(4);
+    KEEP(*(.isr_vector)) /* Startup code */
+    . = ALIGN(4);
+  } >FLASH
+
+  /* The program code and other data into ""FLASH"" Rom type memory */
+  .text :
+  {
+    . = ALIGN(4);
+    *(.text)           /* .text sections (code) */
+    *(.text*)          /* .text* sections (code) */
+    *(.glue_7)         /* glue arm to thumb code */
+    *(.glue_7t)        /* glue thumb to arm code */
+    *(.eh_frame)
+
+    KEEP (*(.init))
+    KEEP (*(.fini))
+
+    . = ALIGN(4);
+    _etext = .;        /* define a global symbols at end of code */
+  } >FLASH
+
+  /* Constant data into ""FLASH"" Rom type memory */
+  .rodata :
+  {
+    . = ALIGN(4);
+    *(.rodata)         /* .rodata sections (constants, strings, etc.) */
+    *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
+    . = ALIGN(4);
+  } >FLASH
+
+  .ARM.extab   : {
+    . = ALIGN(4);
+    *(.ARM.extab* .gnu.linkonce.armextab.*)
+    . = ALIGN(4);
+  } >FLASH
+
+  .ARM : {
+    . = ALIGN(4);
+    __exidx_start = .;
+    *(.ARM.exidx*)
+    __exidx_end = .;
+    . = ALIGN(4);
+  } >FLASH
+
+  .preinit_array     :
+  {
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__preinit_array_start = .);
+    KEEP (*(.preinit_array*))
+    PROVIDE_HIDDEN (__preinit_array_end = .);
+    . = ALIGN(4);
+  } >FLASH
+
+  .init_array :
+  {
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array*))
+    PROVIDE_HIDDEN (__init_array_end = .);
+    . = ALIGN(4);
+  } >FLASH
+
+  .fini_array :
+  {
+    . = ALIGN(4);
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(SORT(.fini_array.*)))
+    KEEP (*(.fini_array*))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+    . = ALIGN(4);
+  } >FLASH
+
+  /* Used by the startup to initialize data */
+  _sidata = LOADADDR(.data);
+
+  /* Initialized data sections into ""RAM"" Ram type memory */
+  .data :
+  {
+    . = ALIGN(4);
+    _sdata = .;        /* create a global symbol at data start */
+    *(.data)           /* .data sections */
+    *(.data*)          /* .data* sections */
+    *(.RamFunc)        /* .RamFunc sections */
+    *(.RamFunc*)       /* .RamFunc* sections */
+
+    . = ALIGN(4);
+    _edata = .;        /* define a global symbol at data end */
+
+  } >RAM AT> FLASH
+
+  /* Uninitialized data section into ""RAM"" Ram type memory */
+  . = ALIGN(4);
+  .bss :
+  {
+    /* This is used by the startup in order to initialize the .bss section */
+    _sbss = .;         /* define a global symbol at bss start */
+    __bss_start__ = _sbss;
+    *(.bss)
+    *(.bss*)
+    *(COMMON)
+
+    . = ALIGN(4);
+    _ebss = .;         /* define a global symbol at bss end */
+    __bss_end__ = _ebss;
+  } >RAM
+
+  /* User_heap_stack section, used to check that there is enough ""RAM"" Ram  type memory left */
+  ._user_heap_stack :
+  {
+    . = ALIGN(8);
+    PROVIDE ( end = . );
+    PROVIDE ( _end = . );
+    . = . + _Min_Heap_Size;
+    . = . + _Min_Stack_Size;
+    . = ALIGN(8);
+  } >RAM
+
+  /* Remove information from the compiler libraries */
+  /DISCARD/ :
+  {
+    libc.a ( * )
+    libm.a ( * )
+    libgcc.a ( * )
+  }
+
+  .ARM.attributes 0 : { *(.ARM.attributes) }
+}
+";
+            ld = ld.Replace("%stack_size%", "0x" + stack_size.ToString("x"));
+            ld = ld.Replace("%ram_origin%", "0x" + ram_origin.ToString("x"));
+            ld = ld.Replace("%ram_size%", ram_size.ToString());
+            ld = ld.Replace("%flash_origin%", "0x" + flash_origin.ToString("x"));
+            ld = ld.Replace("%flash_size%", flash_size.ToString());
+
+            StreamWriter sw = new StreamWriter("flash.ld");
+            sw.Write(ld);
+            sw.Close();
+        }
         static void OutputMakefile(string basename, string startup)
         {
             string mf = @"include build.mk
@@ -46,6 +211,17 @@ clean:
             sw.Write(mf);
             sw.Close();
         }
+
+        static void parseMemory(XmlNode node, out int mem_base, out int mem_size)
+        {
+            int type = int.Parse(node.SelectSingleNode("Type").InnerText);
+            int start = Convert.ToInt32(node.SelectSingleNode("StartAddress").InnerText, 16);
+            int size = Convert.ToInt32(node.SelectSingleNode("Size").InnerText, 16);
+
+            mem_base = start;
+            mem_size = size / 1024;
+        }
+
         static void Main(string[] args)
         {
             XmlDocument xmlDoc = new XmlDocument();
@@ -57,9 +233,8 @@ clean:
             if (args.Count() == 0)
             {
                 Console.Write(@"Usage:
-xml2make uvisionproject.uvproj [startup file]
-    uvproj = required
-    startup file = path to startup file WITHOUT extension (i.e. 'lib/CMSIS/f4xx_startup')
+xml2make uvisionproject.uvproj
+    uvproj = required argument
 ");
                 return;
             }
@@ -72,7 +247,12 @@ xml2make uvisionproject.uvproj [startup file]
             }
 
             string basename = Path.GetFileNameWithoutExtension(args[0]);
-            string startup = args.Count() > 1 ? args[1] : "lib/CMSIS/startup_stm32f407vetx";
+            string startup = "startup.s";
+            int stack_size = 0x1000;
+            int ram_origin = 0x20000000;
+            int ram_size = 128;
+            int flash_origin = 0x8000000;
+            int flash_size = 512;
 
             /* Target  */
             XmlNode defines = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetArmAds/Cads/VariousControls/Define");
@@ -117,7 +297,7 @@ xml2make uvisionproject.uvproj [startup file]
                 foreach (XmlNode f in files) {
                     string filename = f.SelectSingleNode("FileName").InnerText;
                     string filepath = f.SelectSingleNode("FilePath").InnerText.Substring(2);
-                    string filetype = f.SelectSingleNode("FileType").InnerText; /* 1 = C 5 = H */
+                    string filetype = f.SelectSingleNode("FileType").InnerText; /* 1 = C 2 = S 5 = H */
                     XmlNode in_build = f.SelectSingleNode("FileOption/CommonProperty/IncludeInBuild");
 
                     if ((in_build != null) && (in_build.InnerText == "0"))
@@ -129,8 +309,11 @@ xml2make uvisionproject.uvproj [startup file]
                     vs_srcs.Add(filepath);
 
                     /* for build.mk export */
-                    if (int.Parse(filetype) == 1)
+                    int type = int.Parse(filetype);
+                    if (type == 1)
                         mk_files.Add(filepath.Replace('\\', '/'));
+                    else if (type == 2)
+                        startup = filepath.Replace('\\', '/').Replace(".s", "_gcc"); /* we're doing a lot of assumptions here, but please be with me */
 
                     keys[group_name] = vs_files;
                 }
@@ -162,6 +345,13 @@ xml2make uvisionproject.uvproj [startup file]
 
             /* output makefile, too */
             OutputMakefile(outputname, startup);
+
+            /* output linker script */
+            XmlNode memory = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetArmAds/ArmAdsMisc/OnChipMemories/IRAM");
+            parseMemory(memory, out ram_origin, out ram_size);
+            memory = xmlDoc.SelectSingleNode("Project/Targets/Target/TargetOption/TargetArmAds/ArmAdsMisc/OnChipMemories/IROM");
+            parseMemory(memory, out flash_origin, out flash_size);
+            OutputLinker("flash.ld", stack_size, ram_origin, ram_size, flash_origin, flash_size);
 
             /* Common settings for XML output */
             XmlWriterSettings settings = new XmlWriterSettings();
